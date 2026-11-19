@@ -1,0 +1,25 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const path = require('path');
+const initSocket = require('./socketManager');
+
+const app = express();
+app.use(cors());
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'test.html'));
+});
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
+
+initSocket(io);
+
+const PORT = 5000;
+server.listen(PORT, () => {
+  console.log(`Realtime server running on http://localhost:${PORT}`);
+});
