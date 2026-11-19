@@ -1,0 +1,35 @@
+{
+  "name": "code-armada-backend",
+  "version": "1.0.0",
+  "description": "Code Armada - AI-Powered Coding Battle Arena (Database Design & Management Module)",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/scripts/seed.js",
+    "clear-data": "node src/scripts/clearDemoData.js",
+    "test": "node --test tests/runAllTests.js"
+  },
+  "keywords": [
+    "code-armada",
+    "mongodb",
+    "mongoose",
+    "express",
+    "dsa-battle",
+    "ai-interview"
+  ],
+  "author": "Code Armada Team - Member 4 (Database Architect)",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.12.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}
