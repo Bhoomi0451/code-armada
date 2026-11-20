@@ -1,7 +1,7 @@
 
 const rooms = new Map();
 let matchmakingQueue = [];
-const MATCH_DURATION_SECONDS = 60; 
+const MATCH_DURATION_SECONDS = 900; 
 const RECONNECT_GRACE_SECONDS = 30;
 const INITIAL_SCORE = 100;
 const TAB_SWITCH_PENALTY = 5;
