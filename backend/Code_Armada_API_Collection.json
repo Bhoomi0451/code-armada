@@ -1,0 +1,216 @@
+{
+  "client": "Thunder Client / Postman",
+  "collectionName": "Code Armada - Database & Backend APIs",
+  "dateExported": "2026-11-19",
+  "version": "1.0",
+  "folders": [
+    {
+      "name": "System & Health",
+      "requests": [
+        {
+          "name": "API Root Info",
+          "method": "GET",
+          "url": "http://localhost:5000/"
+        },
+        {
+          "name": "Database Health Status",
+          "method": "GET",
+          "url": "http://localhost:5000/api/health"
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "requests": [
+        {
+          "name": "Register User",
+          "method": "POST",
+          "url": "http://localhost:5000/api/users/register",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"username\": \"vikram_cpp\",\n  \"fullName\": \"Vikram Singh\",\n  \"email\": \"vikram@codearena.dev\",\n  \"password\": \"password123\",\n  \"college\": \"IIIT Hyderabad\",\n  \"skills\": [\"C++\", \"Bit Manipulation\", \"Math\"]\n}"
+          }
+        },
+        {
+          "name": "Login User",
+          "method": "POST",
+          "url": "http://localhost:5000/api/users/login",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"email\": \"alex@codearena.dev\",\n  \"password\": \"password123\"\n}"
+          }
+        },
+        {
+          "name": "Get User Profile",
+          "method": "GET",
+          "url": "http://localhost:5000/api/users/{{USER_ID}}"
+        },
+        {
+          "name": "Get User Stats",
+          "method": "GET",
+          "url": "http://localhost:5000/api/users/{{USER_ID}}/stats"
+        },
+        {
+          "name": "Get User Battle History",
+          "method": "GET",
+          "url": "http://localhost:5000/api/users/{{USER_ID}}/battles?page=1&limit=10"
+        }
+      ]
+    },
+    {
+      "name": "Problems",
+      "requests": [
+        {
+          "name": "Get All Active Problems (Hidden Test Cases Redacted)",
+          "method": "GET",
+          "url": "http://localhost:5000/api/problems?difficulty=Easy&topic=Arrays"
+        },
+        {
+          "name": "Get Problem By ID (Public - Only Sample Testcases)",
+          "method": "GET",
+          "url": "http://localhost:5000/api/problems/{{PROBLEM_ID}}"
+        },
+        {
+          "name": "Create Problem (Admin/Protected)",
+          "method": "POST",
+          "url": "http://localhost:5000/api/problems",
+          "headers": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "Bearer {{JWT_TOKEN}}" }
+          ],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"title\": \"Reverse Integer\",\n  \"description\": \"Given a signed 32-bit integer x, return x with its digits reversed.\",\n  \"difficulty\": \"Medium\",\n  \"topics\": [\"Math\"],\n  \"constraints\": [\"-2^31 <= x <= 2^31 - 1\"],\n  \"inputFormat\": \"Single integer\",\n  \"outputFormat\": \"Reversed integer\",\n  \"examples\": [{ \"input\": \"123\", \"output\": \"321\" }],\n  \"testCases\": [\n    { \"input\": \"123\", \"expectedOutput\": \"321\", \"isSample\": true, \"marks\": 50 },\n    { \"input\": \"-123\", \"expectedOutput\": \"-321\", \"isSample\": false, \"marks\": 50 }\n  ]\n}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Battles",
+      "requests": [
+        {
+          "name": "Create 1v1 Battle (Waiting State)",
+          "method": "POST",
+          "url": "http://localhost:5000/api/battles",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"problemId\": \"{{PROBLEM_ID}}\",\n  \"userId\": \"{{USER_ID}}\",\n  \"duration\": 1800\n}"
+          }
+        },
+        {
+          "name": "Join Battle (Transitions to Active)",
+          "method": "POST",
+          "url": "http://localhost:5000/api/battles/{{BATTLE_ID}}/join",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"userId\": \"{{OPPONENT_USER_ID}}\"\n}"
+          }
+        },
+        {
+          "name": "Get Battle Details",
+          "method": "GET",
+          "url": "http://localhost:5000/api/battles/{{BATTLE_ID}}"
+        },
+        {
+          "name": "Update Battle Status",
+          "method": "PATCH",
+          "url": "http://localhost:5000/api/battles/{{BATTLE_ID}}/status",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"status\": \"Completed\",\n  \"winnerId\": \"{{WINNER_USER_ID}}\"\n}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Submissions",
+      "requests": [
+        {
+          "name": "Submit Code Solution",
+          "method": "POST",
+          "url": "http://localhost:5000/api/submissions",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"battleId\": \"{{BATTLE_ID}}\",\n  \"problemId\": \"{{PROBLEM_ID}}\",\n  \"userId\": \"{{USER_ID}}\",\n  \"sourceCode\": \"function twoSum(nums, target) { return [0, 1]; }\",\n  \"language\": \"javascript\",\n  \"executionTime\": 42,\n  \"memoryUsed\": 1200,\n  \"executionResults\": [\n    { \"testCaseNumber\": 1, \"isSample\": true, \"status\": \"Passed\", \"actualOutput\": \"[0,1]\", \"executionTime\": 10 }\n  ]\n}"
+          }
+        },
+        {
+          "name": "Get Best Submission in Battle",
+          "method": "GET",
+          "url": "http://localhost:5000/api/submissions/battle/{{BATTLE_ID}}/best/{{USER_ID}}"
+        },
+        {
+          "name": "Get All Submissions in Battle",
+          "method": "GET",
+          "url": "http://localhost:5000/api/submissions/battle/{{BATTLE_ID}}"
+        }
+      ]
+    },
+    {
+      "name": "Interviews",
+      "requests": [
+        {
+          "name": "Create AI Interview Session",
+          "method": "POST",
+          "url": "http://localhost:5000/api/interviews",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"battleId\": \"{{BATTLE_ID}}\",\n  \"submissionId\": \"{{SUBMISSION_ID}}\",\n  \"userId\": \"{{USER_ID}}\",\n  \"questions\": [\n    {\n      \"questionText\": \"What is the time complexity of your solution?\",\n      \"questionType\": \"Complexity\",\n      \"expectedConcepts\": [\"O(N) time\"],\n      \"difficulty\": \"Easy\",\n      \"maximumMarks\": 50\n    }\n  ]\n}"
+          }
+        },
+        {
+          "name": "Save Participant Responses",
+          "method": "POST",
+          "url": "http://localhost:5000/api/interviews/{{INTERVIEW_ID}}/responses",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"responses\": [\n    {\n      \"questionIndex\": 0,\n      \"answer\": \"The time complexity is O(N) using a single-pass hash map.\"\n    }\n  ]\n}"
+          }
+        },
+        {
+          "name": "Evaluate Interview Responses (AI)",
+          "method": "PATCH",
+          "url": "http://localhost:5000/api/interviews/{{INTERVIEW_ID}}/evaluate",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"evaluations\": [\n    {\n      \"questionIndex\": 0,\n      \"awardedMarks\": 48,\n      \"feedback\": \"Clear and accurate complexity breakdown.\"\n    }\n  ]\n}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Results & Leaderboard",
+      "requests": [
+        {
+          "name": "Create Final Battle Result",
+          "method": "POST",
+          "url": "http://localhost:5000/api/results",
+          "headers": [{ "name": "Content-Type", "value": "application/json" }],
+          "body": {
+            "type": "json",
+            "raw": "{\n  \"battleId\": \"{{BATTLE_ID}}\",\n  \"userId\": \"{{USER_ID}}\",\n  \"submissionId\": \"{{SUBMISSION_ID}}\",\n  \"codingScore\": 95,\n  \"interviewScore\": 90,\n  \"accuracy\": 100,\n  \"executionTime\": 45,\n  \"strengths\": [\"Clean hash map optimization\"],\n  \"weaknesses\": [],\n  \"improvementSuggestions\": [\"Practice dynamic programming\"]\n}"
+          }
+        },
+        {
+          "name": "Get Results for Battle",
+          "method": "GET",
+          "url": "http://localhost:5000/api/results/battle/{{BATTLE_ID}}"
+        },
+        {
+          "name": "Get Global Leaderboard",
+          "method": "GET",
+          "url": "http://localhost:5000/api/results/leaderboard?page=1&limit=20"
+        }
+      ]
+    }
+  ]
+}
