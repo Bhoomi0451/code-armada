@@ -5,7 +5,7 @@ const MATCH_DURATION_SECONDS = 900;
 const RECONNECT_GRACE_SECONDS = 30;
 const INITIAL_SCORE = 100;
 const TAB_SWITCH_PENALTY = 5;
-
+const MAX_TAB_SWITCHES = 3;
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -91,7 +91,7 @@ function startBattle(io, roomCode) {
 }
 function initSocket(io) {
   io.on('connection', (socket) => {
-    console.log(`Connected: ${socket.id}`);
+    console.log(` Connected: ${socket.id}`);
     socket.on('room:create', ({ username }) => {
       const cleanName = (username || 'Player 1').trim();
       const roomCode = generateRoomCode();
@@ -123,12 +123,14 @@ function initSocket(io) {
       const code = (roomCode || '').trim().toUpperCase();
       const cleanName = (username || 'Player 2').trim();
       const room = rooms.get(code);
+
       if (!room) return socket.emit('room:error', { message: 'Room not found.' });
       if (room.status !== 'WAITING') return socket.emit('room:error', { message: 'Match already in progress. Use Rejoin if disconnected.' });
       if (room.players.length >= 2) return socket.emit('room:error', { message: 'Room is full.' });
       if (room.players.some((p) => p.socketId === socket.id || p.username === cleanName)) {
         return socket.emit('room:error', { message: 'Duplicate player or username already in room.' });
       }
+
       const player = {
         socketId: socket.id,
         username: cleanName,
@@ -139,7 +141,7 @@ function initSocket(io) {
       };
       room.players.push(player);
       socket.join(code);
-      console.log(`${cleanName} joined room ${code}`);
+      console.log(`👥${cleanName} joined room ${code}`);
       startBattle(io, code);
     });
     socket.on('matchmaking:join', ({ username }) => {
@@ -176,21 +178,40 @@ function initSocket(io) {
       const player = room.players.find((p) => p.socketId === socket.id);
       if (!player) return;
       player.tabSwitches += 1;
+      if (player.tabSwitches >= MAX_TAB_SWITCHES) {
+        player.score = 0;
+        room.status = 'ENDED';
+        const winner = room.players.find((p) => p.username !== player.username);
+        console.log(`${player.username} DISQUALIFIED in room ${code} after ${MAX_TAB_SWITCHES} tab switches`);
+        io.to(code).emit('match:disqualified', {
+          roomCode: code,
+          disqualifiedPlayer: player.username,
+          winner: winner ? winner.username : 'Opponent',
+          tabSwitches: player.tabSwitches,
+          reason: 'MAX_TAB_SWITCHES_EXCEEDED',
+          message: `${player.username} was disqualified for switching tabs ${MAX_TAB_SWITCHES} times! ${winner?.username} wins!`
+        });
+        cleanupRoom(code);
+        return;
+      }
       player.score = Math.max(0, player.score - TAB_SWITCH_PENALTY);
-      console.log(`Tab switch by ${player.username} in room ${code} (Count: ${player.tabSwitches}, New Score: ${player.score})`);
+      const strikesLeft = MAX_TAB_SWITCHES - player.tabSwitches;
+      console.log(`Tab switch (${player.tabSwitches}/${MAX_TAB_SWITCHES}) by ${player.username} in room ${code} (New Score: ${player.score})`);
       socket.emit('cheat:warning', {
         type: 'TAB_SWITCH',
         penalty: TAB_SWITCH_PENALTY,
         tabSwitches: player.tabSwitches,
+        maxSwitches: MAX_TAB_SWITCHES,
         newScore: player.score,
-        message: `Warning! Tab switching is prohibited. -${TAB_SWITCH_PENALTY} points deducted (Current Score: ${player.score}).`
+        message: `Warning (${player.tabSwitches}/${MAX_TAB_SWITCHES}): Tab switching is prohibited! -${TAB_SWITCH_PENALTY} pts deducted. ${strikesLeft} warning(s) left before disqualification.`
       });
       socket.to(code).emit('opponent:tab_switched', {
         username: player.username,
         penalty: TAB_SWITCH_PENALTY,
         tabSwitches: player.tabSwitches,
+        maxSwitches: MAX_TAB_SWITCHES,
         opponentScore: player.score,
-        message: `${player.username} switched tabs! (-${TAB_SWITCH_PENALTY} pts)`
+        message: `${player.username} switched tabs (${player.tabSwitches}/${MAX_TAB_SWITCHES})! (-${TAB_SWITCH_PENALTY} pts)`
       });
     });
     socket.on('room:rejoin', ({ roomCode, username }) => {
@@ -264,6 +285,7 @@ function initSocket(io) {
         if (!player) continue;
         player.connected = false;
         console.log(`${player.username} disconnected from room ${roomCode}`);
+
         if (room.status === 'WAITING') {
           cleanupRoom(roomCode);
           return;
