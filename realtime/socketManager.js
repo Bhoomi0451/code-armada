@@ -3,6 +3,8 @@ const rooms = new Map();
 let matchmakingQueue = [];
 const MATCH_DURATION_SECONDS = 60; 
 const RECONNECT_GRACE_SECONDS = 30;
+const INITIAL_SCORE = 100;
+const TAB_SWITCH_PENALTY = 5;
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -12,7 +14,6 @@ function generateRoomCode() {
   }
   return rooms.has(code) ? generateRoomCode() : code;
 }
-
 function cleanupRoom(roomCode) {
   const room = rooms.get(roomCode);
   if (!room) return;
@@ -23,7 +24,6 @@ function cleanupRoom(roomCode) {
   rooms.delete(roomCode);
   console.log(`Room ${roomCode} cleaned up from memory`);
 }
-
 function triggerInterviewPhase(io, roomCode, reason) {
   const room = rooms.get(roomCode);
   if (!room || room.status === 'INTERVIEW' || room.status === 'ENDED') return;
@@ -37,7 +37,12 @@ function triggerInterviewPhase(io, roomCode, reason) {
     roomCode,
     status: 'INTERVIEW',
     reason,
-    submissions: room.submissions
+    submissions: room.submissions,
+    scores: room.players.map(({ username, score, tabSwitches }) => ({
+      username,
+      score,
+      tabSwitches
+    }))
   });
 }
 function startMatchTimer(io, roomCode) {
@@ -72,7 +77,13 @@ function startBattle(io, roomCode) {
     roomCode,
     status: room.status,
     duration: MATCH_DURATION_SECONDS,
-    players: room.players.map(({ socketId, username, connected }) => ({ socketId, username, connected })),
+    players: room.players.map(({ socketId, username, connected, score, tabSwitches }) => ({
+      socketId,
+      username,
+      connected,
+      score,
+      tabSwitches
+    })),
     problem: sampleProblem
   });
   console.log(`Battle started in room ${roomCode}: ${room.players[0].username} vs ${room.players[1].username}`);
@@ -88,6 +99,8 @@ function initSocket(io) {
         socketId: socket.id,
         username: cleanName,
         connected: true,
+        score: INITIAL_SCORE,
+        tabSwitches: 0,
         disconnectTimeout: null
       };
       rooms.set(roomCode, {
@@ -100,7 +113,10 @@ function initSocket(io) {
         timerInterval: null
       });
       socket.join(roomCode);
-      socket.emit('room:created', { roomCode, player: { socketId: player.socketId, username: player.username } });
+      socket.emit('room:created', {
+        roomCode,
+        player: { socketId: player.socketId, username: player.username, score: player.score }
+      });
       console.log(`Room ${roomCode} created by ${cleanName}`);
     });
     socket.on('room:join', ({ roomCode, username }) => {
@@ -117,6 +133,8 @@ function initSocket(io) {
         socketId: socket.id,
         username: cleanName,
         connected: true,
+        score: INITIAL_SCORE,
+        tabSwitches: 0,
         disconnectTimeout: null
       };
       room.players.push(player);
@@ -133,8 +151,8 @@ function initSocket(io) {
         const p1Data = matchmakingQueue.shift();
         const p2Data = matchmakingQueue.shift();
         const roomCode = generateRoomCode();
-        const p1 = { ...p1Data, connected: true, disconnectTimeout: null };
-        const p2 = { ...p2Data, connected: true, disconnectTimeout: null };
+        const p1 = { ...p1Data, connected: true, score: INITIAL_SCORE, tabSwitches: 0, disconnectTimeout: null };
+        const p2 = { ...p2Data, connected: true, score: INITIAL_SCORE, tabSwitches: 0, disconnectTimeout: null };
         rooms.set(roomCode, {
           roomCode,
           status: 'WAITING',
@@ -148,9 +166,32 @@ function initSocket(io) {
         const s2 = io.sockets.sockets.get(p2.socketId);
         if (s1) s1.join(roomCode);
         if (s2) s2.join(roomCode);
-
         startBattle(io, roomCode);
       }
+    });
+    socket.on('cheat:tab_switch', ({ roomCode }) => {
+      const code = (roomCode || '').trim().toUpperCase();
+      const room = rooms.get(code);
+      if (!room || room.status !== 'CODING') return;
+      const player = room.players.find((p) => p.socketId === socket.id);
+      if (!player) return;
+      player.tabSwitches += 1;
+      player.score = Math.max(0, player.score - TAB_SWITCH_PENALTY);
+      console.log(`Tab switch by ${player.username} in room ${code} (Count: ${player.tabSwitches}, New Score: ${player.score})`);
+      socket.emit('cheat:warning', {
+        type: 'TAB_SWITCH',
+        penalty: TAB_SWITCH_PENALTY,
+        tabSwitches: player.tabSwitches,
+        newScore: player.score,
+        message: `Warning! Tab switching is prohibited. -${TAB_SWITCH_PENALTY} points deducted (Current Score: ${player.score}).`
+      });
+      socket.to(code).emit('opponent:tab_switched', {
+        username: player.username,
+        penalty: TAB_SWITCH_PENALTY,
+        tabSwitches: player.tabSwitches,
+        opponentScore: player.score,
+        message: `${player.username} switched tabs! (-${TAB_SWITCH_PENALTY} pts)`
+      });
     });
     socket.on('room:rejoin', ({ roomCode, username }) => {
       const code = (roomCode || '').trim().toUpperCase();
@@ -176,7 +217,13 @@ function initSocket(io) {
         status: room.status,
         timeLeft: room.timeLeft,
         problem: room.problem,
-        players: room.players.map(({ socketId, username, connected }) => ({ socketId, username, connected })),
+        players: room.players.map(({ socketId, username, connected, score, tabSwitches }) => ({
+          socketId,
+          username,
+          connected,
+          score,
+          tabSwitches
+        })),
         hasSubmitted: Boolean(room.submissions[cleanName])
       });
       socket.to(code).emit('opponent:reconnected', {
@@ -196,6 +243,8 @@ function initSocket(io) {
         username: submittingPlayer.username,
         code: code || '// sample solution',
         language: language || 'java',
+        finalScore: submittingPlayer.score,
+        tabSwitches: submittingPlayer.tabSwitches,
         submittedAt: Date.now()
       };
       console.log(`${submittingPlayer.username} submitted code in room ${roomCode}`);
@@ -204,7 +253,6 @@ function initSocket(io) {
         username: submittingPlayer.username,
         message: `${submittingPlayer.username} has finalized their submission!`
       });
-
       if (Object.keys(room.submissions).length >= 2) {
         triggerInterviewPhase(io, roomCode, 'BOTH_SUBMITTED');
       }
@@ -229,24 +277,19 @@ function initSocket(io) {
           graceSeconds: RECONNECT_GRACE_SECONDS,
           message: `${player.username} disconnected. Waiting ${RECONNECT_GRACE_SECONDS}s for reconnection...`
         });
-
         player.disconnectTimeout = setTimeout(() => {
           const activeRoom = rooms.get(roomCode);
           if (!activeRoom || activeRoom.status === 'ENDED') return;
-
           activeRoom.status = 'ENDED';
           const winner = activeRoom.players.find((p) => p.username !== player.username);
-
-          console.log(`🏆 ${winner?.username} won room ${roomCode} by opponent forfeit`);
+          console.log(`${winner?.username} won room ${roomCode} by opponent forfeit`);
           io.to(roomCode).emit('match:forfeit', {
             roomCode,
             winner: winner ? winner.username : 'Opponent',
             message: `${player.username} failed to reconnect. ${winner?.username} wins by forfeit!`
           });
-
           cleanupRoom(roomCode);
         }, RECONNECT_GRACE_SECONDS * 1000);
-
         break;
       }
     });
